@@ -1,58 +1,109 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Head from "next/head";
 
 const ADMIN_PASS = "cogni";
 
-const QUESTIONS = [
-  { id:"Q23", text:"Bir etkinlikte size iki seçenek sunuluyor. Hangisini tercih edersiniz?", o1:"150 TL'yi kesin olarak almak", o2:"%40 ihtimalle 500 TL kazanmak, %60 ihtimalle hiçbir şey kazanmamak", open:"Q24" },
-  { id:"Q25", text:"Çalıştığınız yerde size iki fırsat sunuluyor. Hangisini tercih edersiniz?", o1:"Başarılı olursanız daha yüksek maaş alacağınız ama başarısız olursanız mevcut konumunuzu kaybedebileceğiniz bir pozisyona geçmek", o2:"Maaşı sabit ve garanti olan mevcut pozisyonda kalmak", open:"Q26" },
-  { id:"Q27", text:"Bir spor turnuvasına katıldığınızı düşünün. Hangisini tercih edersiniz?", o1:"Daha zayıf rakiplerle oynayıp küçük ama kesin bir ödül almak", o2:"Daha güçlü rakiplerle oynayıp büyük ödül kazanma şansı elde etmek ama erken elenme ihtimali olmak", open:"Q28" },
-  { id:"Q29", text:"Yeni çıkan bir teknoloji ürünü var. Hangisini tercih edersiniz?", o1:"Ürünü erken sipariş verip indirimli fiyata almak ama sorun çıkma ihtimalini kabul etmek", o2:"Ürünü kullananların yorumlarını bekleyip daha sonra normal fiyatla satın almak", open:"Q30" },
-  { id:"Q31", text:"Bir tatil planlıyorsunuz. Aynı otelde kalacaksınız. Hangisini tercih edersiniz?", o1:"Daha pahalı ama güvenilir ve sorunsuz olduğu bilinen aracı firmayı seçmek", o2:"Daha ucuz ama son anda rezervasyon iptali yaşanma ihtimali olan aracı firmayı seçmek", open:"Q32" }
-];
+const TOPICS = `A. Sosyal Dünya & İnsan İlişkileri: Güven, İşbirliği vs rekabet, Sadakat & bağlılık, Sosyal normlara uyum, Dedikodu / bilgi paylaşımı, Affetme & intikam
+B. Kimlik & Grup Dinamikleri: İç grup / dış grup algısı, Ulusal kimlik, Kültürel değerler, Kimlik tehditi, Aidiyet ihtiyacı, Kimlik esnekliği vs katılığı
+C. Siyaset & Toplumsal Sistemler: Otoriteye bakış, Demokrasi vs güçlü liderlik, Göç, Toplumsal eşitsizlik, Kamu politikaları, İfade özgürlüğü
+D. Ekonomi & Kaynak Dağılımı: Adil paylaşım, Risk alma (finansal), Tasarruf vs harcama, Devlet müdahalesi, Refah devleti, Fiyat/kalite trade-off
+E. Ahlak & Etik Kararlar: Zarar verme / zarar görme, Niyet vs sonuç, Adalet duyarlılığı, Kurallara uyum, Ahlaki relativizm vs evrenselcilik
+F. Bilgi, Gerçeklik & Epistemik Tutumlar: Bilime güven, Uzmanlara güven, Komplo inançları, Kanıt değerlendirme, Şüphecilik vs kolay inanma, Bilgi kaynağı tercihleri
+G. Risk & Belirsizlik: Belirsizlik toleransı, Kayıp kaçınma, Sağlık riskleri, Teknolojik riskler, Sosyal riskler, Uzun vadeli vs kısa vadeli düşünme
+H. Duygular & Psikolojik Regülasyon: Öfke kontrolü, Kaygı ile başa çıkma, Empati, Duygusal farkındalık, Duygu bastırma vs ifade
+I. Günlük Yaşam & Karar Verme: Zaman yönetimi, Planlılık vs spontane davranış, Alışkanlıklar, Teknoloji kullanımı, Sağlık davranışları
+J. Doğa, Çevre & Gelecek: Çevre duyarlılığı, İklim değişikliği, Sürdürülebilirlik, Gelecek nesillere sorumluluk`;
 
-const TEST_QS = [
-  { id:"Q33", text:"Birine kahve içmeyi teklif edeceksiniz. Hangisini tercih edersiniz?", o1:"Sizinle kahve içmeyi büyük ihtimalle kabul edecek biri", o2:"Sizi daha çok heyecanlandıran ama kabul edip etmeyeceğinden emin olmadığınız biri" },
-  { id:"Q34", text:"Bir toplantıda söz alacaksınız. Hangisini tercih edersiniz?", o1:"Başarılı olursa büyük etki yaratabilecek ama eleştirilme ihtimali olan yeni bir fikir söylemek", o2:"Daha önce denenmiş ve güvenli bir fikri söylemek" },
-  { id:"Q35", text:"Elinizde bir miktar para var. Hangisini tercih edersiniz?", o1:"Daha yüksek kazanç ihtimali olan ama zarar etme riski bulunan bir yere yatırmak", o2:"Parayı düşük getirili ama garanti bir hesapta tutmak" }
-];
+const SYS_INIT = `You are conducting an adaptive cognitive profiling assessment. Your goal is to understand HOW a participant thinks about a specific topic — not WHAT they think, but their underlying reasoning patterns, cognitive style, and decision-making heuristics.
 
-const SYS_INITIAL = `You are a behavioral psychologist conducting an adaptive risk assessment. A participant answered 5 risk scenarios (choice + Turkish justification). Predict their answers to 3 TEST scenarios.
+AVAILABLE TOPICS:
+${TOPICS}
 
-TEST SCENARIOS (participant has NOT seen these):
-Q33 (Social): Invite someone for coffee. 1=Someone likely to accept (safe) 2=Someone exciting but uncertain (risky)
-Q34 (Professional): Speak in a meeting. 1=Bold new idea, risks criticism (risky) 2=Safe, tested idea (safe)
-Q35 (Financial): Allocate money. 1=Higher return but risk of loss (risky) 2=Low-return guaranteed account (safe)
+YOUR TASK:
+1. Randomly select ONE category (A-J) and ONE subtopic within it
+2. Generate a binary (A/B) scenario question in Turkish about that subtopic
+   - The question must present a realistic dilemma or choice
+   - Options A and B should reveal different REASONING STYLES, not just different opinions
+   - Write in clear, everyday Turkish
+3. Generate 2-4 hypotheses about the reasoning patterns that could lead someone to choose A or B
+   - Each hypothesis describes a WAY OF THINKING, not just a preference
+   - Example: "Loss-averse thinker who prioritizes avoiding negative outcomes over pursuing gains"
+   - Example: "Principle-based reasoner who applies universal rules regardless of context"
 
-TASK:
-1. Analyze reasoning PATTERNS
-2. Generate 2-3 competing hypotheses per test question
-3. Identify what you CANNOT distinguish
-4. Generate ONE adaptive question (Turkish, binary A/B) that discriminates hypotheses
+RESPOND WITH ONLY VALID JSON (no markdown, no backticks):
+{
+  "category": "Letter and name (e.g. 'G. Risk & Belirsizlik')",
+  "subtopic": "Subtopic name (e.g. 'Belirsizlik toleransı')",
+  "question": {
+    "scenario": "Turkish scenario text (2-3 sentences, clear everyday language)",
+    "option_a": "Turkish option A",
+    "option_b": "Turkish option B"
+  },
+  "hypotheses": [
+    {"id": "H1", "label": "Short English label", "description": "English description of reasoning pattern", "predicts": "A or B"},
+    {"id": "H2", "label": "Short English label", "description": "English description of reasoning pattern", "predicts": "A or B"}
+  ]
+}`;
 
-RULES FOR ADAPTIVE QUESTIONS:
-- Binary A/B choice in Turkish
-- Must NOT overlap with: financial gamble, career change, sports competition, tech purchase, travel booking, coffee invitation, meeting speaking, investment
-- Target the AMBIGUITY ZONE
+const SYS_UPDATE = `You are continuing an adaptive cognitive profiling session.
 
-JSON ONLY:
-{"hypotheses":{"Q33":[{"prediction":1,"label":"...","reasoning":"..."},{"prediction":2,"label":"...","reasoning":"..."}],"Q34":[...],"Q35":[...]},"undecidable":"...","adaptive_question":{"scenario":"Turkish","option_a":"Turkish","option_b":"Turkish","discrimination_logic":"English"}}`;
+RULES:
+1. Analyze how the participant's answer affects each hypothesis
+2. Update each hypothesis: "eliminated", "weakened", "unchanged", or "strengthened"
+3. You may also ADD new hypotheses if the answer reveals a pattern you hadn't considered
+4. CHECK: Is there only ONE plausible hypothesis remaining?
+   - YES (one clearly dominant hypothesis, no reasonable alternative): set "ready": true
+   - NO (multiple plausible hypotheses remain): generate a NEW question that discriminates between them
+5. The new question MUST be about the SAME subtopic
+6. The new question should be designed so that the competing hypotheses predict DIFFERENT answers
+7. Minimum 2 profiling questions required before ready=true
 
-const SYS_UPDATE = `You are continuing an adaptive risk assessment. Update hypotheses based on the latest answer.
+RESPOND WITH ONLY VALID JSON:
+{
+  "hypothesis_updates": [
+    {"id": "H1", "label": "...", "status": "eliminated|weakened|unchanged|strengthened", "evidence": "Why this status based on their answer"}
+  ],
+  "new_hypotheses": [{"id": "H_new", "label": "...", "description": "...", "predicts": "A or B"}],
+  "active_hypotheses_count": 2,
+  "ready": false,
+  "reasoning": "Why ready or not ready (1-2 sentences)",
+  "next_question": {
+    "scenario": "Turkish (null if ready=true)",
+    "option_a": "Turkish",
+    "option_b": "Turkish",
+    "discrimination_logic": "English: If A then H1 supported, if B then H2 supported"
+  }
+}`;
 
-TEST SCENARIOS:
-Q33: 1=safe 2=risky | Q34: 1=risky 2=safe | Q35: 1=risky 2=safe
+const SYS_FINAL = `You are completing a cognitive profiling session. Based on all evidence collected, you now understand this participant's reasoning pattern on the given topic.
 
-Update each hypothesis status. If no reasonable doubt remains for ALL 3 predictions, set ready=true. Otherwise generate another adaptive question (Turkish, A/B, no topic overlap).
+YOUR TASK:
+1. Summarize the participant's reasoning style (2-3 sentences, English)
+2. Generate exactly 3 TEST questions about the SAME subtopic
+   - Each test question is a new binary A/B scenario in Turkish
+   - The questions should test DIFFERENT ASPECTS of the same subtopic
+   - For each question, predict which option (A or B) this participant will choose
+   - Base predictions on the identified reasoning pattern
+3. Rate your confidence for each prediction (0.0 to 1.0)
 
-JSON ONLY:
-{"hypothesis_updates":{"Q33":[{"prediction":1,"label":"...","status":"eliminated|weakened|unchanged|strengthened","evidence":"..."}],"Q34":[...],"Q35":[...]},"ready":true_or_false,"confidence_summary":"...","adaptive_question":{"scenario":"Turkish or null","option_a":"...","option_b":"...","discrimination_logic":"..."}}`;
-
-const SYS_FINAL = `Make final predictions based on ALL evidence.
-Q33: 1=safe 2=risky | Q34: 1=risky 2=safe | Q35: 1=risky 2=safe
-
-JSON ONLY:
-{"predictions":{"Q33":{"prediction":1,"confidence":0.75,"reasoning":"..."},"Q34":{"prediction":1,"confidence":0.6,"reasoning":"..."},"Q35":{"prediction":2,"confidence":0.85,"reasoning":"..."}},"participant_profile":"2-3 sentences","adaptive_questions_impact":"1-2 sentences"}`;
+RESPOND WITH ONLY VALID JSON:
+{
+  "participant_profile": "2-3 sentence English summary of their reasoning style",
+  "winning_hypothesis": "The hypothesis that best explains their pattern",
+  "test_questions": [
+    {
+      "id": "T1",
+      "scenario": "Turkish scenario text",
+      "option_a": "Turkish option A",
+      "option_b": "Turkish option B",
+      "prediction": "A or B",
+      "confidence": 0.75,
+      "prediction_reasoning": "English: why this prediction based on their profile"
+    },
+    {"id": "T2", ...},
+    {"id": "T3", ...}
+  ]
+}`;
 
 async function callAPI(system, prompt) {
   const r = await fetch("/api/generate", {
@@ -61,17 +112,13 @@ async function callAPI(system, prompt) {
     body: JSON.stringify({ system, prompt })
   });
   const d = await r.json();
-  if (d.error) throw new Error(typeof d.error === 'string' ? d.error : d.error.message || JSON.stringify(d.error));
+  if (d.error) throw new Error(typeof d.error === "string" ? d.error : d.error.message || JSON.stringify(d.error));
   const txt = (d.content || []).map(b => b.text || "").join("").replace(/```json|```/g, "").trim();
   return JSON.parse(txt);
 }
 
 async function saveData(key, value) {
-  await fetch("/api/data", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key, value })
-  });
+  await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) });
 }
 
 async function loadData(key) {
@@ -86,112 +133,145 @@ async function listKeys() {
   return d.keys || [];
 }
 
-function buildTrainingPrompt(ans) {
-  let p = "PARTICIPANT'S TRAINING DATA:\n\n";
-  const descs = [
-    ["Q23","Q24","Financial gamble","1=Guaranteed 150TL","2=Gamble 40% chance 500TL"],
-    ["Q25","Q26","Career risk","1=Risk career change","2=Stay stable"],
-    ["Q27","Q28","Sports competition","1=Weak opponents small prize","2=Strong opponents big prize"],
-    ["Q29","Q30","Tech purchase","1=Early discount with risk","2=Wait for reviews"],
-    ["Q31","Q32","Travel booking","1=Expensive reliable","2=Cheap risky"]
-  ];
-  descs.forEach(([qc,qt,label,d1,d2],i) => {
-    p += "Scenario " + (i+1) + " (" + label + "): Chose option " + ans[qc] + "\n  " + d1 + " | " + d2 + "\n  Explanation: \"" + (ans[qt]||"") + "\"\n\n";
-  });
-  return p;
-}
-
 export default function Home() {
   const [phase, setPhase] = useState("welcome");
-  const [ans, setAns] = useState({});
-  const [qIdx, setQIdx] = useState(0);
-  const [adaptiveRound, setAdaptiveRound] = useState(0);
-  const [adaptiveHistory, setAdaptiveHistory] = useState([]);
-  const [currentAdaptive, setCurrentAdaptive] = useState(null);
-  const [predictions, setPredictions] = useState(null);
+  const [topic, setTopic] = useState(null);
+  const [currentQ, setCurrentQ] = useState(null);
+  const [answer, setAnswer] = useState(null);
+  const [profilingHistory, setProfilingHistory] = useState([]);
+  const [profilingRound, setProfilingRound] = useState(0);
+  const [testQuestions, setTestQuestions] = useState([]);
   const [testIdx, setTestIdx] = useState(0);
-  const [pid] = useState("P" + Date.now().toString(36) + Math.random().toString(36).slice(2,5));
+  const [testAnswers, setTestAnswers] = useState({});
+  const [predictions, setPredictions] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [pid] = useState("P" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [adminData, setAdminData] = useState(null);
   const [adminInput, setAdminInput] = useState("");
   const allHypRef = useRef([]);
 
-  const curQ = phase === "training" ? QUESTIONS[qIdx] : null;
-  const curTest = phase === "test" ? TEST_QS[testIdx] : null;
-
-  const canNext = () => {
-    if (phase === "training" && curQ) return ans[curQ.id] && (ans[curQ.open]||"").length >= 20;
-    if (phase === "adaptive") return ans["AD" + adaptiveRound] != null;
-    if (phase === "test" && curTest) return ans[curTest.id] != null;
-    return false;
-  };
-
-  const startAdaptive = async () => {
+  // ===== API CALL 1: Start profiling =====
+  const startProfiling = async () => {
     setLoading(true); setError(null);
     try {
-      const result = await callAPI(SYS_INITIAL, buildTrainingPrompt(ans) + "\nGenerate hypotheses and first adaptive question.");
-      allHypRef.current = [result];
-      setCurrentAdaptive(result.adaptive_question);
-      setAdaptiveRound(1);
-      setPhase("adaptive");
-    } catch (e) { setError(e.message); setPhase("adaptive_fallback"); }
+      const result = await callAPI(SYS_INIT, "Select a topic and generate the first profiling question. Be creative in your topic selection — pick randomly, not always the same one.");
+      setTopic({ category: result.category, subtopic: result.subtopic });
+      setCurrentQ(result.question);
+      allHypRef.current = [{ round: 0, hypotheses: result.hypotheses }];
+      setProfilingRound(1);
+      setPhase("profiling");
+    } catch (e) { setError("Baglanti hatasi: " + e.message); }
     setLoading(false);
   };
 
-  const nextAdaptive = async () => {
-    const choice = ans["AD" + adaptiveRound];
-    const choiceText = choice === "A" ? currentAdaptive.option_a : currentAdaptive.option_b;
-    const newHist = [...adaptiveHistory, { round: adaptiveRound, scenario: currentAdaptive.scenario, option_a: currentAdaptive.option_a, option_b: currentAdaptive.option_b, choice, choiceText, logic: currentAdaptive.discrimination_logic }];
-    setAdaptiveHistory(newHist);
+  // ===== API CALL 2-5: Update hypotheses =====
+  const submitProfiling = async () => {
+    const choiceText = answer === "A" ? currentQ.option_a : currentQ.option_b;
+    const newHistory = [...profilingHistory, {
+      round: profilingRound,
+      scenario: currentQ.scenario,
+      option_a: currentQ.option_a,
+      option_b: currentQ.option_b,
+      answer,
+      answerText: choiceText
+    }];
+    setProfilingHistory(newHistory);
+    setAnswer(null);
 
-    if (adaptiveRound >= 5) { await doFinal(newHist); return; }
-
-    setLoading(true); setError(null);
-    try {
-      let tp = buildTrainingPrompt(ans) + "ADAPTIVE HISTORY:\n";
-      newHist.forEach(h => { tp += "Round " + h.round + ": \"" + h.scenario + "\" -> " + h.choice + " (\"" + h.choiceText + "\")\n"; });
-      tp += "\nPREVIOUS HYPOTHESES:\n" + JSON.stringify(allHypRef.current[allHypRef.current.length-1]) + "\n\nUpdate hypotheses.";
-      const result = await callAPI(SYS_UPDATE, tp);
-      allHypRef.current.push(result);
-      if (result.ready) { await doFinal(newHist); return; }
-      setCurrentAdaptive(result.adaptive_question);
-      setAdaptiveRound(adaptiveRound + 1);
-    } catch (e) { setError(e.message); await doFinal(newHist); }
-    setLoading(false);
-  };
-
-  const doFinal = async (hist) => {
-    setLoading(true);
-    try {
-      let tp = buildTrainingPrompt(ans) + "ADAPTIVE HISTORY:\n";
-      hist.forEach(h => { tp += "Round " + h.round + ": \"" + h.scenario + "\" -> " + h.choice + "\n"; });
-      tp += "\nMake final predictions.";
-      const result = await callAPI(SYS_FINAL, tp);
-      setPredictions(result.predictions);
-    } catch (e) {
-      setPredictions({ Q33:{prediction:0,confidence:0,reasoning:"error"}, Q34:{prediction:0,confidence:0,reasoning:"error"}, Q35:{prediction:0,confidence:0,reasoning:"error"} });
+    if (profilingRound >= 5) {
+      await generateTestQuestions(newHistory);
+      return;
     }
-    setPhase("test"); setLoading(false);
+
+    setLoading(true); setError(null);
+    try {
+      let prompt = "TOPIC: " + topic.category + " > " + topic.subtopic + "\n\n";
+      prompt += "PROFILING HISTORY:\n";
+      newHistory.forEach(h => {
+        prompt += "Round " + h.round + ": \"" + h.scenario + "\"\n  A: " + h.option_a + "\n  B: " + h.option_b + "\n  Answer: " + h.answer + " (\"" + h.answerText + "\")\n\n";
+      });
+      prompt += "CURRENT HYPOTHESES:\n" + JSON.stringify(allHypRef.current[allHypRef.current.length - 1].hypotheses) + "\n\n";
+      prompt += "Profiling round: " + profilingRound + " of max 5. Minimum 2 rounds required before ready=true.\n";
+      prompt += "Update hypotheses and decide next step.";
+
+      const result = await callAPI(SYS_UPDATE, prompt);
+      allHypRef.current.push({ round: profilingRound, updates: result.hypothesis_updates, new_hyp: result.new_hypotheses });
+
+      if (result.ready && profilingRound >= 2) {
+        await generateTestQuestions(newHistory);
+        return;
+      }
+
+      if (result.next_question && result.next_question.scenario) {
+        setCurrentQ(result.next_question);
+        setProfilingRound(profilingRound + 1);
+      } else {
+        await generateTestQuestions(newHistory);
+        return;
+      }
+    } catch (e) {
+      setError("Guncelleme hatasi: " + e.message);
+      await generateTestQuestions(newHistory);
+    }
+    setLoading(false);
   };
 
+  // ===== FINAL API CALL: Generate test questions =====
+  const generateTestQuestions = async (history) => {
+    setLoading(true); setError(null);
+    try {
+      let prompt = "TOPIC: " + topic.category + " > " + topic.subtopic + "\n\n";
+      prompt += "COMPLETE PROFILING HISTORY:\n";
+      history.forEach(h => {
+        prompt += "Round " + h.round + ": \"" + h.scenario + "\"\n  Answer: " + h.answer + " (\"" + h.answerText + "\")\n\n";
+      });
+      prompt += "HYPOTHESIS EVOLUTION:\n" + JSON.stringify(allHypRef.current) + "\n\n";
+      prompt += "Generate your profile summary and 3 test questions about the SAME subtopic (" + topic.subtopic + "). Each test question should probe a DIFFERENT aspect of this subtopic.";
+
+      const result = await callAPI(SYS_FINAL, prompt);
+      setTestQuestions(result.test_questions);
+      setPredictions(result.test_questions.map(t => ({ prediction: t.prediction, confidence: t.confidence, reasoning: t.prediction_reasoning })));
+      setProfile({ summary: result.participant_profile, hypothesis: result.winning_hypothesis });
+      setTestIdx(0);
+      setPhase("test");
+    } catch (e) {
+      setError("Test sorusu olusturulamadi: " + e.message);
+      setPhase("error");
+    }
+    setLoading(false);
+  };
+
+  // ===== Save results =====
   const saveResults = async () => {
+    const accuracy = testQuestions.map((tq, i) => {
+      const pred = tq.prediction;
+      const actual = testAnswers[i];
+      return pred === actual ? 1 : 0;
+    });
+
     const data = {
-      pid, timestamp: new Date().toISOString(), answers: ans,
-      adaptive_history: adaptiveHistory, adaptive_rounds: adaptiveHistory.length,
-      predictions,
-      actuals: { Q33: ans.Q33, Q34: ans.Q34, Q35: ans.Q35 },
-      accuracy: {
-        Q33: predictions?.Q33?.prediction === ans.Q33 ? 1 : 0,
-        Q34: predictions?.Q34?.prediction === ans.Q34 ? 1 : 0,
-        Q35: predictions?.Q35?.prediction === ans.Q35 ? 1 : 0,
-        total: (predictions?.Q33?.prediction===ans.Q33?1:0)+(predictions?.Q34?.prediction===ans.Q34?1:0)+(predictions?.Q35?.prediction===ans.Q35?1:0)
-      }
+      pid,
+      timestamp: new Date().toISOString(),
+      topic,
+      profiling_rounds: profilingHistory.length,
+      profiling_history: profilingHistory,
+      hypothesis_evolution: allHypRef.current,
+      profile,
+      test_questions: testQuestions.map((tq, i) => ({
+        ...tq,
+        actual: testAnswers[i],
+        correct: accuracy[i]
+      })),
+      accuracy: { t1: accuracy[0], t2: accuracy[1], t3: accuracy[2], total: accuracy.reduce((a, b) => a + b, 0) }
     };
-    try { await saveData("resp:" + pid, JSON.stringify(data)); } catch(_){}
+
+    try { await saveData("resp:" + pid, JSON.stringify(data)); } catch (_) { }
     setPhase("done");
   };
 
+  // ===== Admin =====
   const loadAdmin = async () => {
     try {
       const keys = await listKeys();
@@ -201,178 +281,180 @@ export default function Home() {
         const val = await loadData(k);
         if (val) all.push(JSON.parse(val));
       }
-      all.sort((a,b) => (a.timestamp||"").localeCompare(b.timestamp||""));
+      all.sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
       setAdminData(all);
-    } catch(e) { setError(e.message); }
+    } catch (e) { setError(e.message); }
   };
 
   const downloadCSV = () => {
     if (!adminData?.length) return;
-    const fields = ["pid","timestamp","Q23","Q24","Q25","Q26","Q27","Q28","Q29","Q30","Q31","Q32","adaptive_rounds","Q33_pred","Q33_conf","Q33_actual","Q33_correct","Q34_pred","Q34_conf","Q34_actual","Q34_correct","Q35_pred","Q35_conf","Q35_actual","Q35_correct","total_correct"];
+    const fields = ["pid", "timestamp", "category", "subtopic", "profiling_rounds", "T1_pred", "T1_actual", "T1_correct", "T2_pred", "T2_actual", "T2_correct", "T3_pred", "T3_actual", "T3_correct", "total_correct", "profile"];
     const rows = adminData.map(r => [
-      r.pid, r.timestamp, r.answers?.Q23, '"'+(r.answers?.Q24||"").replace(/"/g,'""')+'"',
-      r.answers?.Q25, '"'+(r.answers?.Q26||"").replace(/"/g,'""')+'"',
-      r.answers?.Q27, '"'+(r.answers?.Q28||"").replace(/"/g,'""')+'"',
-      r.answers?.Q29, '"'+(r.answers?.Q30||"").replace(/"/g,'""')+'"',
-      r.answers?.Q31, '"'+(r.answers?.Q32||"").replace(/"/g,'""')+'"',
-      r.adaptive_rounds,
-      r.predictions?.Q33?.prediction, r.predictions?.Q33?.confidence, r.actuals?.Q33, r.accuracy?.Q33,
-      r.predictions?.Q34?.prediction, r.predictions?.Q34?.confidence, r.actuals?.Q34, r.accuracy?.Q34,
-      r.predictions?.Q35?.prediction, r.predictions?.Q35?.confidence, r.actuals?.Q35, r.accuracy?.Q35,
-      r.accuracy?.total
+      r.pid, r.timestamp,
+      '"' + (r.topic?.category || "").replace(/"/g, '""') + '"',
+      '"' + (r.topic?.subtopic || "").replace(/"/g, '""') + '"',
+      r.profiling_rounds,
+      r.test_questions?.[0]?.prediction, r.test_questions?.[0]?.actual, r.accuracy?.t1,
+      r.test_questions?.[1]?.prediction, r.test_questions?.[1]?.actual, r.accuracy?.t2,
+      r.test_questions?.[2]?.prediction, r.test_questions?.[2]?.actual, r.accuracy?.t3,
+      r.accuracy?.total,
+      '"' + (r.profile?.summary || "").replace(/"/g, '""') + '"'
     ].join(","));
     const csv = "\uFEFF" + fields.join(",") + "\n" + rows.join("\n");
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-    const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="cognitwin_data.csv"; a.click();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "cognitwin_v2_data.csv"; a.click();
   };
 
   // ===== STYLES =====
-  const pg = { fontFamily:"'Segoe UI',system-ui,sans-serif", maxWidth:640, margin:"0 auto", padding:"20px 16px", minHeight:"100vh", color:"#1a1a2e" };
-  const card = { background:"#fff", borderRadius:12, padding:"24px 20px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)", marginBottom:16 };
-  const btn = (on) => ({ display:"block", width:"100%", padding:"12px 20px", borderRadius:8, border:"none", fontSize:14, fontWeight:600, cursor:on?"pointer":"default", background:on?"#1a1a2e":"#ccc", color:"#fff", marginTop:14 });
-  const opt = (sel) => ({ display:"block", width:"100%", padding:"14px 16px", borderRadius:8, border:sel?"2px solid #1a1a2e":"2px solid #e5e5e5", background:sel?"#f0f0ff":"#fafafa", fontSize:14, cursor:"pointer", textAlign:"left", marginBottom:8, fontWeight:sel?600:400, boxSizing:"border-box" });
-  const ta = { width:"100%", minHeight:80, padding:12, borderRadius:8, border:"1px solid #ddd", fontSize:14, fontFamily:"inherit", resize:"vertical", boxSizing:"border-box", marginTop:8 };
+  const pg = { fontFamily: "'Segoe UI',system-ui,sans-serif", maxWidth: 640, margin: "0 auto", padding: "20px 16px", minHeight: "100vh", color: "#1a1a2e" };
+  const card = { background: "#fff", borderRadius: 12, padding: "24px 20px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)", marginBottom: 16 };
+  const btn = (on) => ({ display: "block", width: "100%", padding: "12px 20px", borderRadius: 8, border: "none", fontSize: 14, fontWeight: 600, cursor: on ? "pointer" : "default", background: on ? "#1a1a2e" : "#ccc", color: "#fff", marginTop: 14 });
+  const opt = (sel) => ({ display: "block", width: "100%", padding: "14px 16px", borderRadius: 8, border: sel ? "2px solid #1a1a2e" : "2px solid #e5e5e5", background: sel ? "#f0f0ff" : "#fafafa", fontSize: 14, cursor: "pointer", textAlign: "left", marginBottom: 8, fontWeight: sel ? 600 : 400, boxSizing: "border-box" });
 
-  const totalSteps = 13;
-  const curStep = phase==="training"?qIdx+1:phase==="adaptive"?5+adaptiveRound:phase==="test"?10+testIdx+1:13;
-  const pct = Math.min((curStep/totalSteps)*100,100);
+  const maxSteps = 8;
+  const curStep = phase === "profiling" ? profilingRound : phase === "test" ? 5 + testIdx + 1 : phase === "done" ? maxSteps : 0;
+  const pct = Math.min((curStep / maxSteps) * 100, 100);
+  const bar = (<div style={{ height: 4, background: "#e8e8e8", borderRadius: 2, marginBottom: 20, overflow: "hidden" }}><div style={{ width: pct + "%", height: "100%", background: "#1a1a2e", borderRadius: 2, transition: "width .4s" }} /></div>);
 
   // ===== ADMIN =====
   if (phase === "admin") {
-    const agg = adminData ? {n:adminData.length, q33:adminData.reduce((s,r)=>s+(r.accuracy?.Q33||0),0), q34:adminData.reduce((s,r)=>s+(r.accuracy?.Q34||0),0), q35:adminData.reduce((s,r)=>s+(r.accuracy?.Q35||0),0)} : null;
-    return (<div style={{...pg,maxWidth:1000}}><Head><title>CognitWin Admin</title></Head><div style={card}>
-      <h2 style={{fontSize:18,margin:"0 0 16px"}}>Admin Panel</h2>
+    const agg = adminData ? {
+      n: adminData.length,
+      t1: adminData.reduce((s, r) => s + (r.accuracy?.t1 || 0), 0),
+      t2: adminData.reduce((s, r) => s + (r.accuracy?.t2 || 0), 0),
+      t3: adminData.reduce((s, r) => s + (r.accuracy?.t3 || 0), 0),
+      avgRounds: adminData.length ? (adminData.reduce((s, r) => s + (r.profiling_rounds || 0), 0) / adminData.length).toFixed(1) : 0
+    } : null;
+    return (<div style={{ ...pg, maxWidth: 1100 }}><Head><title>CognitWin Admin</title></Head><div style={card}>
+      <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>Admin Panel</h2>
       {!adminData && <button onClick={loadAdmin} style={btn(true)}>Verileri Yukle</button>}
       {adminData && <>
-        {agg && agg.n>0 && <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-          {[["N",agg.n],["Q33",((agg.q33/agg.n)*100).toFixed(0)+"%"],["Q34",((agg.q34/agg.n)*100).toFixed(0)+"%"],["Q35",((agg.q35/agg.n)*100).toFixed(0)+"%"],["Overall",(((agg.q33+agg.q34+agg.q35)/(agg.n*3))*100).toFixed(0)+"%"]].map(([l,v])=>(
-            <div key={l} style={{background:"#f8f9fa",borderRadius:8,padding:"12px 16px",flex:"1",textAlign:"center"}}>
-              <div style={{fontSize:11,color:"#888"}}>{l}</div>
-              <div style={{fontSize:22,fontWeight:700}}>{v}</div>
+        {agg && agg.n > 0 && <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+          {[
+            ["Katilimci", agg.n, "#1a1a2e"],
+            ["T1 Acc", ((agg.t1 / agg.n) * 100).toFixed(0) + "%", "#059669"],
+            ["T2 Acc", ((agg.t2 / agg.n) * 100).toFixed(0) + "%", "#059669"],
+            ["T3 Acc", ((agg.t3 / agg.n) * 100).toFixed(0) + "%", "#059669"],
+            ["Overall", (((agg.t1 + agg.t2 + agg.t3) / (agg.n * 3)) * 100).toFixed(0) + "%", "#1a1a2e"],
+            ["Ort. Soru", agg.avgRounds, "#6366f1"]
+          ].map(([l, v, c]) => (
+            <div key={l} style={{ background: "#f8f9fa", borderRadius: 8, padding: "10px 14px", flex: "1 1 80px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: "#888" }}>{l}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: c }}>{v}</div>
             </div>
           ))}
         </div>}
-        <button onClick={downloadCSV} style={{...btn(true),background:"#059669"}}>CSV Indir</button>
-        <div style={{maxHeight:500,overflowY:"auto",fontSize:11,marginTop:12}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["PID","Tarih","Ad.S","Q33P","Q33A","Q33","Q34P","Q34A","Q34","Q35P","Q35A","Q35","Skor"].map(h=><th key={h} style={{padding:4,borderBottom:"2px solid #ddd",fontSize:10}}>{h}</th>)}</tr></thead>
-            <tbody>{adminData.map((r,i)=><tr key={i} style={{borderBottom:"1px solid #eee"}}>
-              <td style={{padding:4,fontSize:9}}>{r.pid?.slice(0,8)}</td>
-              <td style={{padding:4,fontSize:9}}>{r.timestamp?.slice(5,16)}</td>
-              <td style={{padding:4,textAlign:"center"}}>{r.adaptive_rounds}</td>
-              {["Q33","Q34","Q35"].map(q=>[
-                <td key={q+"p"} style={{padding:4,textAlign:"center"}}>{r.predictions?.[q]?.prediction}</td>,
-                <td key={q+"a"} style={{padding:4,textAlign:"center"}}>{r.actuals?.[q]}</td>,
-                <td key={q+"c"} style={{padding:4,textAlign:"center",fontWeight:700,color:r.accuracy?.[q]?"#059669":"#dc2626"}}>{r.accuracy?.[q]?"Y":"N"}</td>
+        <button onClick={downloadCSV} style={{ ...btn(true), background: "#059669" }}>CSV Indir</button>
+        <div style={{ maxHeight: 500, overflowY: "auto", fontSize: 11, marginTop: 12 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{["PID", "Tarih", "Konu", "P.Sor", "T1 P", "T1 A", "T1", "T2 P", "T2 A", "T2", "T3 P", "T3 A", "T3", "Skor", "Profil"].map(h =>
+              <th key={h} style={{ padding: "4px 3px", borderBottom: "2px solid #ddd", fontSize: 9, textAlign: "center" }}>{h}</th>
+            )}</tr></thead>
+            <tbody>{adminData.map((r, i) => <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+              <td style={{ padding: 3, fontSize: 9 }}>{r.pid?.slice(0, 8)}</td>
+              <td style={{ padding: 3, fontSize: 8 }}>{r.timestamp?.slice(5, 16)}</td>
+              <td style={{ padding: 3, fontSize: 8, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.topic?.subtopic}</td>
+              <td style={{ padding: 3, textAlign: "center" }}>{r.profiling_rounds}</td>
+              {[0, 1, 2].map(ti => [
+                <td key={ti + "p"} style={{ padding: 3, textAlign: "center", fontSize: 10 }}>{r.test_questions?.[ti]?.prediction}</td>,
+                <td key={ti + "a"} style={{ padding: 3, textAlign: "center", fontSize: 10 }}>{r.test_questions?.[ti]?.actual}</td>,
+                <td key={ti + "c"} style={{ padding: 3, textAlign: "center", fontWeight: 700, fontSize: 10, color: r.accuracy?.[["t1", "t2", "t3"][ti]] ? "#059669" : "#dc2626" }}>{r.accuracy?.[["t1", "t2", "t3"][ti]] ? "Y" : "N"}</td>
               ])}
-              <td style={{padding:4,textAlign:"center",fontWeight:700}}>{r.accuracy?.total}/3</td>
+              <td style={{ padding: 3, textAlign: "center", fontWeight: 700 }}>{r.accuracy?.total}/3</td>
+              <td style={{ padding: 3, fontSize: 8, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.profile?.summary}</td>
             </tr>)}</tbody>
           </table>
         </div>
-        <button onClick={()=>{setPhase("welcome");setAdminData(null);}} style={{...btn(true),background:"#666",marginTop:12}}>Ankete Don</button>
+        <button onClick={() => { setPhase("welcome"); setAdminData(null); }} style={{ ...btn(true), background: "#666", marginTop: 12 }}>Ankete Don</button>
       </>}
     </div></div>);
   }
 
   if (phase === "admin_login") {
     return (<div style={pg}><Head><title>CognitWin Admin</title></Head><div style={card}>
-      <h2 style={{fontSize:18,margin:"0 0 12px"}}>Admin</h2>
-      <input type="password" placeholder="Sifre" value={adminInput} onChange={e=>setAdminInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&adminInput===ADMIN_PASS)setPhase("admin");}} style={{width:"100%",padding:12,borderRadius:8,border:"1px solid #ddd",fontSize:14,boxSizing:"border-box"}} />
-      <button onClick={()=>{if(adminInput===ADMIN_PASS)setPhase("admin");else setError("Yanlis sifre");}} style={btn(true)}>Giris</button>
-      {error && <p style={{color:"#c00",fontSize:12,marginTop:8}}>{error}</p>}
+      <h2 style={{ fontSize: 18, margin: "0 0 12px" }}>Admin</h2>
+      <input type="password" placeholder="Sifre" value={adminInput} onChange={e => setAdminInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && adminInput === ADMIN_PASS) setPhase("admin"); }} style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box" }} />
+      <button onClick={() => { if (adminInput === ADMIN_PASS) setPhase("admin"); else setError("Yanlis sifre"); }} style={btn(true)}>Giris</button>
+      {error && <p style={{ color: "#c00", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </div></div>);
   }
 
   // ===== WELCOME =====
   if (phase === "welcome") {
     return (<div style={pg}><Head><title>CognitWin</title></Head><div style={card}>
-      <h1 style={{fontSize:22,fontWeight:700,margin:"0 0 8px"}}>Karar Verme Araştırması</h1>
-      <p style={{fontSize:14,color:"#555",lineHeight:1.6,margin:"0 0 8px"}}>Bu çalışmada size farklı karar senaryoları sunulacak. Her senaryoda iki seçenekten birini tercih etmenizi ve nedenini açıklamanızı istiyoruz.</p>
-      <p style={{fontSize:14,color:"#555",lineHeight:1.6,margin:"0 0 8px"}}>İlk 5 sorudan sonra, cevaplarınıza göre size özel ek sorular oluşturulacak. Son olarak 3 test sorusu cevaplayacaksınız.</p>
-      <p style={{fontSize:13,color:"#999",margin:"0 0 16px"}}>Tahmini süre: 8-12 dakika</p>
-      <button onClick={()=>{setPhase("training");setQIdx(0);}} style={btn(true)}>Başla</button>
-      <button onClick={()=>setPhase("admin_login")} style={{background:"none",border:"none",color:"#ddd",fontSize:10,cursor:"pointer",display:"block",margin:"12px auto 0"}}>admin</button>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>Karar Verme Araştırması</h1>
+      <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6, margin: "0 0 8px" }}>Bu çalışmada size çeşitli karar senaryoları sunulacak. Her senaryoda iki seçenekten birini tercih etmenizi istiyoruz.</p>
+      <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6, margin: "0 0 8px" }}>Sorular cevaplarınıza göre şekillenecek. Doğru ya da yanlış cevap yoktur — düşündüğünüz seçeneği işaretlemeniz yeterlidir.</p>
+      <p style={{ fontSize: 13, color: "#999", margin: "0 0 16px" }}>Tahmini süre: 5-10 dakika</p>
+      <button onClick={startProfiling} style={btn(true)}>Başla</button>
+      <button onClick={() => setPhase("admin_login")} style={{ background: "none", border: "none", color: "#ddd", fontSize: 10, cursor: "pointer", display: "block", margin: "12px auto 0" }}>admin</button>
     </div></div>);
   }
 
   // ===== LOADING =====
   if (loading) {
+    const msgs = ["Sorunuz hazırlanıyor...", "Cevabınız analiz ediliyor...", "Test soruları oluşturuluyor..."];
+    const msg = phase === "test" || profilingRound > 4 ? msgs[2] : profilingRound > 1 ? msgs[1] : msgs[0];
     return (<div style={pg}><Head><title>CognitWin</title></Head>
-      <div style={{height:4,background:"#e8e8e8",borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"#1a1a2e",borderRadius:2}} /></div>
-      <div style={{...card,textAlign:"center",padding:"48px 24px"}}>
-        <div style={{width:40,height:40,border:"4px solid #e8e8e8",borderTopColor:"#1a1a2e",borderRadius:"50%",margin:"0 auto 16px",animation:"spin 1s linear infinite"}} />
+      {bar}
+      <div style={{ ...card, textAlign: "center", padding: "48px 24px" }}>
+        <div style={{ width: 40, height: 40, border: "4px solid #e8e8e8", borderTopColor: "#1a1a2e", borderRadius: "50%", margin: "0 auto 16px", animation: "spin 1s linear infinite" }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        <p style={{fontSize:15,fontWeight:600,margin:"0 0 6px"}}>Cevaplarınız analiz ediliyor...</p>
-        <p style={{fontSize:12,color:"#999",margin:0}}>Bu işlem birkaç saniye sürebilir</p>
+        <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 6px" }}>{msg}</p>
+        <p style={{ fontSize: 12, color: "#999", margin: 0 }}>Bu işlem birkaç saniye sürebilir</p>
       </div>
     </div>);
   }
 
-  // ===== TRAINING =====
-  if (phase === "training" && curQ) {
-    return (<div style={pg}><Head><title>CognitWin - Soru {qIdx+1}</title></Head>
-      <div style={{height:4,background:"#e8e8e8",borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"#1a1a2e",borderRadius:2}} /></div>
-      <div style={card}>
-        <p style={{fontSize:12,color:"#999",margin:"0 0 8px"}}>Soru {qIdx+1} / 5</p>
-        <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 16px",lineHeight:1.5}}>{curQ.text}</h2>
-        <button onClick={()=>setAns(p=>({...p,[curQ.id]:1}))} style={opt(ans[curQ.id]===1)}><span style={{fontWeight:700,marginRight:8}}>A.</span>{curQ.o1}</button>
-        <button onClick={()=>setAns(p=>({...p,[curQ.id]:2}))} style={opt(ans[curQ.id]===2)}><span style={{fontWeight:700,marginRight:8}}>B.</span>{curQ.o2}</button>
-        {ans[curQ.id] && <div style={{marginTop:14}}>
-          <label style={{fontSize:14,fontWeight:500}}>Neden bu seçeneği tercih ettiniz?</label>
-          <textarea style={ta} placeholder="Lütfen en az 20 karakter yazınız..." value={ans[curQ.open]||""} onChange={e=>setAns(p=>({...p,[curQ.open]:e.target.value}))} />
-          <p style={{fontSize:11,color:(ans[curQ.open]||"").length>=20?"#059669":"#999",margin:"4px 0 0"}}>{(ans[curQ.open]||"").length} / min 20</p>
-        </div>}
-        <button onClick={()=>{if(qIdx<4)setQIdx(qIdx+1);else startAdaptive();}} disabled={!canNext()} style={btn(canNext())}>{qIdx===4?"Devam Et":"Sonraki"}</button>
-      </div>
-    </div>);
-  }
-
-  // ===== ADAPTIVE =====
-  if (phase === "adaptive" && currentAdaptive) {
-    return (<div style={pg}><Head><title>CognitWin - Ek Soru</title></Head>
-      <div style={{height:4,background:"#e8e8e8",borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"#1a1a2e",borderRadius:2}} /></div>
-      <div style={card}>
-        <p style={{fontSize:12,color:"#6366f1",fontWeight:600,margin:"0 0 8px"}}>Ek Soru {adaptiveRound} / max 5</p>
-        <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 16px",lineHeight:1.5}}>{currentAdaptive.scenario}</h2>
-        <button onClick={()=>setAns(p=>({...p,["AD"+adaptiveRound]:"A"}))} style={opt(ans["AD"+adaptiveRound]==="A")}><span style={{fontWeight:700,marginRight:8}}>A.</span>{currentAdaptive.option_a}</button>
-        <button onClick={()=>setAns(p=>({...p,["AD"+adaptiveRound]:"B"}))} style={opt(ans["AD"+adaptiveRound]==="B")}><span style={{fontWeight:700,marginRight:8}}>B.</span>{currentAdaptive.option_b}</button>
-        <button onClick={nextAdaptive} disabled={!canNext()} style={btn(canNext())}>Devam</button>
-      </div>
-    </div>);
-  }
-
-  // ===== FALLBACK =====
-  if (phase === "adaptive_fallback") {
+  // ===== ERROR =====
+  if (phase === "error") {
     return (<div style={pg}><Head><title>CognitWin</title></Head><div style={card}>
-      <p style={{fontSize:13,color:"#c00",margin:"0 0 12px"}}>{error}</p>
-      <p style={{fontSize:14,color:"#555",margin:"0 0 16px"}}>Adaptif soru oluşturulamadı. Test sorularına geçiliyor.</p>
-      <button onClick={()=>{setPredictions({Q33:{prediction:0,confidence:0},Q34:{prediction:0,confidence:0},Q35:{prediction:0,confidence:0}});setPhase("test");}} style={btn(true)}>Devam Et</button>
+      <p style={{ fontSize: 14, color: "#c00", margin: "0 0 12px" }}>{error || "Bir hata olustu."}</p>
+      <button onClick={() => { setPhase("welcome"); setProfilingHistory([]); setProfilingRound(0); setAnswer(null); allHypRef.current = []; }} style={btn(true)}>Basa Don</button>
     </div></div>);
   }
 
-  // ===== TEST =====
-  if (phase === "test" && curTest) {
-    return (<div style={pg}><Head><title>CognitWin - Test</title></Head>
-      <div style={{height:4,background:"#e8e8e8",borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"#1a1a2e",borderRadius:2}} /></div>
+  // ===== PROFILING =====
+  if (phase === "profiling" && currentQ) {
+    return (<div style={pg}><Head><title>CognitWin - Soru {profilingRound}</title></Head>
+      {bar}
       <div style={card}>
-        <p style={{fontSize:12,color:"#999",margin:"0 0 8px"}}>Test Sorusu {testIdx+1} / 3</p>
-        <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 16px",lineHeight:1.5}}>{curTest.text}</h2>
-        <button onClick={()=>setAns(p=>({...p,[curTest.id]:1}))} style={opt(ans[curTest.id]===1)}><span style={{fontWeight:700,marginRight:8}}>A.</span>{curTest.o1}</button>
-        <button onClick={()=>setAns(p=>({...p,[curTest.id]:2}))} style={opt(ans[curTest.id]===2)}><span style={{fontWeight:700,marginRight:8}}>B.</span>{curTest.o2}</button>
-        <button onClick={()=>{if(testIdx<2)setTestIdx(testIdx+1);else saveResults();}} disabled={!canNext()} style={btn(canNext())}>{testIdx===2?"Tamamla":"Sonraki"}</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, margin: 0 }}>Soru {profilingRound}</p>
+          {topic && <p style={{ fontSize: 10, color: "#999", margin: 0, background: "#f3f4f6", padding: "2px 8px", borderRadius: 10 }}>{topic.subtopic}</p>}
+        </div>
+        <h2 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 16px", lineHeight: 1.6 }}>{currentQ.scenario}</h2>
+        <button onClick={() => setAnswer("A")} style={opt(answer === "A")}><span style={{ fontWeight: 700, marginRight: 8 }}>A.</span>{currentQ.option_a}</button>
+        <button onClick={() => setAnswer("B")} style={opt(answer === "B")}><span style={{ fontWeight: 700, marginRight: 8 }}>B.</span>{currentQ.option_b}</button>
+        <button onClick={submitProfiling} disabled={!answer} style={btn(!!answer)}>Devam</button>
+      </div>
+    </div>);
+  }
+
+  // ===== TEST =====
+  if (phase === "test" && testQuestions.length > 0 && testIdx < testQuestions.length) {
+    const tq = testQuestions[testIdx];
+    return (<div style={pg}><Head><title>CognitWin - Test {testIdx + 1}</title></Head>
+      {bar}
+      <div style={card}>
+        <p style={{ fontSize: 12, color: "#999", margin: "0 0 12px" }}>Test Sorusu {testIdx + 1} / 3</p>
+        <h2 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 16px", lineHeight: 1.6 }}>{tq.scenario}</h2>
+        <button onClick={() => setTestAnswers(p => ({ ...p, [testIdx]: "A" }))} style={opt(testAnswers[testIdx] === "A")}><span style={{ fontWeight: 700, marginRight: 8 }}>A.</span>{tq.option_a}</button>
+        <button onClick={() => setTestAnswers(p => ({ ...p, [testIdx]: "B" }))} style={opt(testAnswers[testIdx] === "B")}><span style={{ fontWeight: 700, marginRight: 8 }}>B.</span>{tq.option_b}</button>
+        <button onClick={() => { if (testIdx < 2) setTestIdx(testIdx + 1); else saveResults(); }} disabled={!testAnswers[testIdx]} style={btn(!!testAnswers[testIdx])}>{testIdx === 2 ? "Tamamla" : "Sonraki"}</button>
       </div>
     </div>);
   }
 
   // ===== DONE =====
   if (phase === "done") {
-    return (<div style={pg}><Head><title>CognitWin - Tamamlandi</title></Head><div style={{...card,textAlign:"center",padding:"36px 20px"}}>
-      <div style={{fontSize:48,marginBottom:12}}>✅</div>
-      <h2 style={{fontSize:20,fontWeight:700,margin:"0 0 8px"}}>Teşekkürler!</h2>
-      <p style={{fontSize:14,color:"#555",margin:"0 0 16px"}}>Cevaplarınız başarıyla kaydedildi.</p>
-      <p style={{fontSize:12,color:"#999"}}>Katılımcı: {pid}</p>
+    return (<div style={pg}><Head><title>CognitWin - Tamamlandi</title></Head><div style={{ ...card, textAlign: "center", padding: "36px 20px" }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>&#10004;&#65039;</div>
+      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>Teşekkürler!</h2>
+      <p style={{ fontSize: 14, color: "#555", margin: "0 0 16px" }}>Cevaplarınız başarıyla kaydedildi.</p>
+      <p style={{ fontSize: 12, color: "#999" }}>Katılımcı: {pid}</p>
     </div></div>);
   }
 
-  return <div style={pg}><div style={{...card,textAlign:"center",padding:40}}><p>Yükleniyor...</p></div></div>;
+  return <div style={pg}><div style={{ ...card, textAlign: "center", padding: 40 }}><p>Yukleniyor...</p></div></div>;
 }
